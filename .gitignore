@@ -1,0 +1,4 @@
+.env
+proxy/certs/
+__pycache__/
+*.pyc
