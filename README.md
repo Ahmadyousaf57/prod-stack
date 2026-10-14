@@ -37,4 +37,4 @@ Create them in the namespace before installing the chart:
 ## Not done yet
 
 - NetworkPolicy: the network isolation from Compose is not reproduced in Kubernetes yet.
-- Helm rollback and a second environment (a `dev` namespace with its own values).
+
