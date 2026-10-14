@@ -1,0 +1,19 @@
+db:
+  image: postgres:16
+  storage: 1Gi
+  secretName: db-secret
+
+backend:
+  image: prod-backend:v1
+  replicas: 1
+
+frontend:
+  image: nginx:alpine
+  replicas: 1
+
+proxy:
+  image: nginx:alpine
+  replicas: 1
+  certsSecretName: proxy-certs
+  nodePortHttp: 30080
+  nodePortHttps: 30443

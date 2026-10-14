@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: proxy
+spec:
+  replicas: {{ .Values.proxy.replicas }}
+  selector:
+    matchLabels:
+      app: proxy
+  template:
+    metadata:
+      labels:
+        app: proxy
+    spec:
+      containers:
+        - name: proxy
+          image: {{ .Values.proxy.image }}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+            - containerPort: 443
+          volumeMounts:
+            - name: config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+              readOnly: true
+            - name: certs
+              mountPath: /etc/nginx/certs
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 3
+            periodSeconds: 5
+      volumes:
+        - name: config
+          configMap:
+            name: proxy-config
+        - name: certs
+          secret:
+            secretName: {{ .Values.proxy.certsSecretName }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: proxy
+spec:
+  type: NodePort
+  selector:
+    app: proxy
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+      nodePort: {{ .Values.proxy.nodePortHttp }}
+    - name: https
+      port: 443
+      targetPort: 443
+      nodePort: {{ .Values.proxy.nodePortHttps }}
