@@ -33,5 +33,16 @@ pipeline {
                 }
             }
         }
+        stage('Deploy') {
+            steps {
+                sh 'helm upgrade prod helm/prod-stack -n prod-stack --set backend.image=$IMAGE:$BUILD_NUMBER --wait --timeout 10m'
+            }
+        }
+        stage('Verify') {
+            steps {
+                sh 'kubectl get pods -n prod-stack'
+                sh 'helm history prod -n prod-stack'
+            }
+        }
     }
 }
