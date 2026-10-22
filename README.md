@@ -15,6 +15,7 @@ A small 4-service web stack. First run with Docker Compose, then rebuilt on Kube
 | `.env.example` | Template for the database settings |
 | `k8s/` | Plain Kubernetes manifests |
 | `helm/prod-stack/` | The Helm chart |
+| `Jenkinsfile` | The Jenkins pipeline (CI/CD) |
 
 ## What I did
 
@@ -22,6 +23,8 @@ A small 4-service web stack. First run with Docker Compose, then rebuilt on Kube
 2. **Kubernetes** (`k8s/`, namespace `prod-stack`): Deployments and ClusterIP Services for backend and frontend, the proxy exposed as NodePort (30080 and 30443), ConfigMaps for the nginx configs, Secrets for the DB credentials and the TLS certificate.
 3. **StatefulSet + Headless Service** for the database, with a PVC from `volumeClaimTemplates`, so data survives pod restarts.
 4. **Helm chart** (`helm/prod-stack/`): one chart installs everything. Images, replicas, NodePorts and storage size live in `values.yaml`. Secrets are not part of the chart, the chart only uses their names.
+5. **Jenkins**: a pipeline (`Jenkinsfile`) builds the backend image, pushes it to Docker Hub and deploys it with `helm upgrade`.
+6. **NetworkPolicy**: three ingress policies in the chart, so only proxy -> frontend -> backend -> db is allowed.
 
 ## Run with Docker Compose
 
@@ -82,13 +85,53 @@ Create them in the namespace before installing the chart:
 
 `db.env` holds the keys `POSTGRES_USER`, `POSTGRES_PASSWORD` and `POSTGRES_DB`. The certificate and key are self-signed and generated locally.
 
+## CI/CD with Jenkins
+
+A Jenkins pipeline (`Jenkinsfile`, job `prod-stack-pipeline`) builds, tests and deploys the stack each time the job is started (Build Now):
+
+| Stage | What it does |
+|---|---|
+| Checkout | Gets the code from GitHub |
+| Build | `docker compose build` |
+| Test | `docker compose config -q` and `helm lint helm/prod-stack` |
+| Push | Builds the backend image and pushes it to Docker Hub as `ahmadyousaf56/prod-backend:<build number>` |
+| Deploy | `helm upgrade prod` with `--set backend.image=...` and `--wait` |
+| Verify | Shows the pods and the Helm history |
+
+The job uses "Pipeline script from SCM" (this repository, branch `main`, script path `Jenkinsfile`). Jenkins reads the code from GitHub, so changes must be pushed before the job runs.
+
+Every build gets its own image tag (the Jenkins build number). The Docker Hub login is a Jenkins credential (`dockerhub-creds`), so no password is stored in the repo.
+
+Jenkins runs as its own `jenkins` user, so it needs access to Docker (the `docker` group) and a kubeconfig for minikube.
+
+## NetworkPolicy
+
+In Docker Compose the services are isolated by 3 networks. In Kubernetes every pod can reach every other pod by default, so the chart adds three ingress NetworkPolicies (`helm/prod-stack/templates/networkpolicy.yaml`):
+
+| Policy | Applies to | Allowed in |
+|---|---|---|
+| `allow-backend-to-db` | `db` | only `backend`, TCP 5432 |
+| `allow-frontend-to-backend` | `backend` | only `frontend`, TCP 5000 |
+| `allow-proxy-to-frontend` | `frontend` | only `proxy`, TCP 80 |
+
+The proxy has no policy because it is the entry point. The only path left is proxy -> frontend -> backend -> db.
+
+Policies only work if the cluster's network plugin enforces them. On minikube it does (see Tested).
+
 ## Tested
 
 - Pods db-0, backend, frontend and proxy all Running, the database PVC stays Bound and is reused.
 - Deleting the db-0 pod brings back a pod with the same name, the same PVC and the same data.
 - The frontend page opens over HTTPS through the proxy, and `/api/data/` returns the database version.
 - `helm upgrade` to 3 backend replicas worked (Helm revision 2).
+- `helm rollback prod 1` worked: the backend went back to 1 pod and Helm created a new revision.
+- Jenkins builds deployed the backend from Docker Hub (`ahmadyousaf56/prod-backend:3`) with `helm upgrade`, and the pipeline finished with SUCCESS.
+- NetworkPolicy: `proxy` to `backend` times out (blocked), while `frontend` to `backend` and `backend` to `db` (5432) work. So minikube enforces the policies.
+- The frontend page still returns `200 OK` over HTTPS (NodePort 30443) after the policies were applied.
 
 ## Not done yet
 
-- NetworkPolicy: the network isolation from Compose is not reproduced in Kubernetes yet.
+- A second environment (`dev` namespace) from the same chart.
+- The Jenkins job is started by hand (no webhook), and the Test stage only checks config (no security scan or app tests).
+- Jenkins uses the full minikube kubeconfig, a ServiceAccount with limited rights would be safer.
+- `values.yaml` still names the local image `prod-backend:v1`, Jenkins overrides it with `--set backend.image=...`.
