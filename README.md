@@ -131,7 +131,6 @@ Policies only work if the cluster's network plugin enforces them. On minikube it
 
 ## Not done yet
 
-- A second environment (`dev` namespace) from the same chart.
 - The Jenkins job is started by hand (no webhook), and the Test stage only checks config (no security scan or app tests).
 - Jenkins uses the full minikube kubeconfig, a ServiceAccount with limited rights would be safer.
 - `values.yaml` still names the local image `prod-backend:v1`, Jenkins overrides it with `--set backend.image=...`.
