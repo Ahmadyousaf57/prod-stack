@@ -17,3 +17,8 @@ variable "public_key_path" {
   type    = string
   default = "~/.ssh/id_ed25519.pub"
 }
+
+variable "repo_url" {
+  type    = string
+  default = "https://github.com/Ahmadyousaf57/prod-stack.git"
+}

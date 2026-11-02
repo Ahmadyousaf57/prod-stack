@@ -50,10 +50,12 @@ resource "aws_security_group" "web" {
 }
 
 resource "aws_instance" "app" {
-  ami                    = data.aws_ami.ubuntu.id
-  instance_type          = var.instance_type
-  key_name               = aws_key_pair.main.key_name
-  vpc_security_group_ids = [aws_security_group.web.id]
+  ami                         = data.aws_ami.ubuntu.id
+  instance_type               = var.instance_type
+  key_name                    = aws_key_pair.main.key_name
+  vpc_security_group_ids      = [aws_security_group.web.id]
+  user_data                   = templatefile("${path.module}/user_data.sh", { repo_url = var.repo_url })
+  user_data_replace_on_change = true
 
   root_block_device {
     volume_size = 20
