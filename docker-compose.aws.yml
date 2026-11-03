@@ -1,0 +1,16 @@
+x-logging: &logging
+  driver: awslogs
+  options:
+    awslogs-region: us-east-1
+    awslogs-group: /prod-stack/app
+    tag: "{{.Name}}"
+
+services:
+  proxy:
+    logging: *logging
+  frontend:
+    logging: *logging
+  backend:
+    logging: *logging
+  db:
+    logging: *logging
