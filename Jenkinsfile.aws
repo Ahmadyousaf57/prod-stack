@@ -1,0 +1,48 @@
+pipeline {
+  agent any
+
+  triggers {
+    pollSCM('H/2 * * * *')
+  }
+
+  environment {
+    SSH_KEY  = '/var/lib/jenkins/.ssh/ec2_key'
+    SSH_OPTS = '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o ConnectTimeout=15'
+  }
+
+  stages {
+    stage('Checkout') {
+      steps {
+        checkout scm
+      }
+    }
+
+    stage('Test') {
+      steps {
+        sh 'python3 -m py_compile backend/app.py'
+        sh 'bash -n terraform/user_data.sh'
+      }
+    }
+
+    stage('Deploy to EC2') {
+      steps {
+        script {
+          env.EC2_HOST = sh(script: 'cat /var/lib/jenkins/ec2_host', returnStdout: true).trim()
+        }
+        sh '''
+          ssh $SSH_OPTS -i $SSH_KEY ubuntu@$EC2_HOST "cd ~/prod-stack && git pull --ff-only origin main && sudo docker compose -f docker-compose.yml -f docker-compose.aws.yml up -d --build && sudo docker compose restart frontend proxy"
+        '''
+      }
+    }
+
+    stage('Verify') {
+      steps {
+        sh '''
+          curl -ksf -m 20 --retry 10 --retry-delay 5 --retry-all-errors https://$EC2_HOST/api/stats
+          echo
+          curl -ks -m 20 https://$EC2_HOST/ | grep -o "<title>[^<]*</title>"
+        '''
+      }
+    }
+  }
+}

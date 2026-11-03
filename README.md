@@ -134,3 +134,26 @@ Policies only work if the cluster's network plugin enforces them. On minikube it
 - The Jenkins job is started by hand (no webhook), and the Test stage only checks config (no security scan or app tests).
 - Jenkins uses the full minikube kubeconfig, a ServiceAccount with limited rights would be safer.
 - `values.yaml` still names the local image `prod-backend:v1`, Jenkins overrides it with `--set backend.image=...`.
+
+## AWS deployment (Resource Booking Portal)
+
+The same Docker Compose stack runs on one EC2 instance in AWS (us-east-1), created and destroyed with Terraform.
+
+- `terraform/` : EC2 (Ubuntu 24.04, t3.small), key pair, security group, IAM role, CloudWatch log group, CPU alarm, SNS email, dashboard
+- `terraform/user_data.sh` : first boot installs Docker, adds swap, clones this repo, generates `.env` (random DB password) and a self-signed certificate, then runs Docker Compose
+- `docker-compose.aws.yml` : sends container logs to CloudWatch Logs (`/prod-stack/app`)
+- `budget/` : monthly AWS Budget with alerts at 50%, 75% and 90% (separate Terraform state, so `destroy` does not remove it)
+- `Jenkinsfile.aws` : Jenkins pipeline (Test, deploy to EC2 over SSH, verify). Polls GitHub about every 2 minutes
+
+Run it (needs AWS credentials in `~/.aws` and an SSH key at `~/.ssh/id_ed25519.pub`):
+
+```
+cd terraform
+printf 'my_ip = "<your IP range>/24"\nalert_email = "<your email>"\n' > terraform.tfvars
+terraform init
+terraform apply
+terraform output url
+terraform destroy
+```
+
+Known limits: single instance (no high availability), self-signed certificate (browser warning), SSH is allowed from one IP range only, database data is lost on `destroy`.
