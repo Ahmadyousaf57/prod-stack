@@ -54,8 +54,13 @@ resource "aws_instance" "app" {
   instance_type               = var.instance_type
   key_name                    = aws_key_pair.main.key_name
   vpc_security_group_ids      = [aws_security_group.web.id]
+  iam_instance_profile        = aws_iam_instance_profile.ec2.name
   user_data                   = templatefile("${path.module}/user_data.sh", { repo_url = var.repo_url })
   user_data_replace_on_change = true
+
+  credit_specification {
+    cpu_credits = "standard"
+  }
 
   root_block_device {
     volume_size = 20
@@ -65,4 +70,6 @@ resource "aws_instance" "app" {
   tags = {
     Name = "prod-stack"
   }
+
+  depends_on = [aws_cloudwatch_log_group.app, aws_iam_role_policy.logs]
 }

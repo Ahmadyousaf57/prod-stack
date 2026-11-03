@@ -22,3 +22,7 @@ variable "repo_url" {
   type    = string
   default = "https://github.com/Ahmadyousaf57/prod-stack.git"
 }
+
+variable "alert_email" {
+  type = string
+}

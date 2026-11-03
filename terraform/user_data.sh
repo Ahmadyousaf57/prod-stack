@@ -25,6 +25,7 @@ cd /home/ubuntu/prod-stack
 echo "[4/6] .env with random password"
 DBPASS=$(openssl rand -hex 16)
 printf "POSTGRES_DB=appdb\nPOSTGRES_USER=appuser\nPOSTGRES_PASSWORD=%s\n" "$DBPASS" > .env
+echo "COMPOSE_FILE=docker-compose.yml:docker-compose.aws.yml" >> .env
 chmod 600 .env
 
 echo "[5/6] self-signed certificate"
@@ -35,6 +36,6 @@ openssl req -x509 -nodes -newkey rsa:2048 -days 365 -keyout proxy/certs/server.k
 chown -R ubuntu:ubuntu /home/ubuntu/prod-stack
 
 echo "[6/6] docker compose up"
-docker compose up -d --build
+docker compose -f docker-compose.yml -f docker-compose.aws.yml up -d --build
 touch /var/log/user-data.done
 echo "user_data finished"
