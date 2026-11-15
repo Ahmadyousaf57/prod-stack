@@ -38,7 +38,7 @@ pipeline {
     stage('Verify') {
       steps {
         sh '''
-          curl -ksf -m 20 --retry 10 --retry-delay 5 --retry-all-errors https://$EC2_HOST/api/stats
+          curl -ksf -m 20 --retry 10 --retry-delay 5 --retry-all-errors https://$EC2_HOST/api/data/
           echo
           curl -ks -m 20 https://$EC2_HOST/ | grep -o "<title>[^<]*</title>"
         '''
