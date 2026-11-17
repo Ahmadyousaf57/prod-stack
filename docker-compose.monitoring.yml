@@ -1,0 +1,61 @@
+services:
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=2d
+    volumes:
+      - ./monitoring/prometheus:/etc/prometheus:ro
+      - prom-data:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+    networks: [net-monitoring]
+    mem_limit: 200m
+    restart: unless-stopped
+
+  node-exporter:
+    image: prom/node-exporter:v1.9.1
+    command:
+      - --path.rootfs=/host
+    pid: host
+    volumes:
+      - /:/host:ro
+    networks: [net-monitoring]
+    mem_limit: 50m
+    restart: unless-stopped
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.55.1
+    command:
+      - --docker_only=true
+      - --disable_metrics=percpu,sched,tcp,udp,advtcp,process,hugetlb,referenced_memory,cpu_topology,resctrl
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    networks: [net-monitoring]
+    mem_limit: 250m
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:12.2.0
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD .env mein set karo}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "127.0.0.1:3000:3000"
+    networks: [net-monitoring]
+    mem_limit: 200m
+    restart: unless-stopped
+
+networks:
+  net-monitoring:
+
+volumes:
+  prom-data:
+  grafana-data:

@@ -30,7 +30,7 @@ pipeline {
           env.EC2_HOST = sh(script: 'cat /var/lib/jenkins/ec2_host', returnStdout: true).trim()
         }
         sh '''
-          ssh $SSH_OPTS -i $SSH_KEY ubuntu@$EC2_HOST "cd ~/prod-stack && git pull --ff-only origin main && sudo docker compose -f docker-compose.yml -f docker-compose.aws.yml up -d --build && sudo docker compose restart frontend proxy"
+          ssh $SSH_OPTS -i $SSH_KEY ubuntu@$EC2_HOST "cd ~/prod-stack && git pull --ff-only origin main && sudo docker compose -f docker-compose.yml -f docker-compose.aws.yml -f docker-compose.monitoring.yml up -d --build && sudo docker compose restart frontend proxy"
         '''
       }
     }
